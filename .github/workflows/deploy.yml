@@ -1,0 +1,32 @@
+# CI/CD (sesuai proposal): cek HTML/JS otomatis, lalu deploy ke GitHub Pages setiap push ke main.
+name: CI-CD
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+permissions: { contents: read, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Cek sintaks JavaScript
+        run: node --check js/app.js && node --check js/config.js
+      - name: Cek file wajib
+        run: test -f index.html && test -f css/style.css && test -f assets/hero.jpg
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - run: mkdir _site && cp -r index.html css js assets _site/
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: d
+        uses: actions/deploy-pages@v4
